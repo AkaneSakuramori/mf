@@ -4,6 +4,7 @@ from config import API_ID, API_HASH, BOT_TOKEN
 from split import handle_split_callback, handle_split_time
 from merge import handle_merge_callback, handle_merge_videos, handle_merge_done
 from screenshot import handle_ss_callback, handle_ss_type, handle_ss_count, handle_ss_time
+from watermark import handle_watermark_callback, handle_watermark_url, handle_watermark_position, apply_watermark
 
 app = Client("video_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -15,7 +16,8 @@ async def start_command(client, message: Message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📹 Split Video", callback_data="split")],
         [InlineKeyboardButton("🔗 Merge Videos", callback_data="merge")],
-        [InlineKeyboardButton("📸 Screenshot", callback_data="screenshot")]
+        [InlineKeyboardButton("📸 Screenshot", callback_data="screenshot")],
+        [InlineKeyboardButton("💧 Watermark", callback_data="watermark")]
     ])
     
     await message.reply_text(
@@ -43,6 +45,14 @@ async def ss_type_callback(client, callback_query):
 @app.on_callback_query(filters.regex("^auto_"))
 async def ss_count_callback(client, callback_query):
     await handle_ss_count(client, callback_query, user_states, user_data)
+
+@app.on_callback_query(filters.regex("^watermark$"))
+async def watermark_callback(client, callback_query):
+    await handle_watermark_callback(client, callback_query, user_states, user_data)
+
+@app.on_callback_query(filters.regex("^pos_"))
+async def watermark_position_callback(client, callback_query):
+    await handle_watermark_position(client, callback_query, user_states, user_data)
 
 @app.on_message(filters.command("done"))
 async def done_command(client, message: Message):
@@ -79,6 +89,9 @@ async def handle_video_message(client, message: Message):
             await process_auto_screenshots(client, message, user_data[user_id])
             user_states.pop(user_id, None)
             user_data.pop(user_id, None)
+    
+    elif state == "waiting_watermark_video":
+        await apply_watermark(client, message, user_states, user_data)
 
 @app.on_message(filters.text & ~filters.command(["start", "done"]))
 async def handle_text_message(client, message: Message):
@@ -90,6 +103,9 @@ async def handle_text_message(client, message: Message):
     
     elif state == "waiting_ss_time":
         await handle_ss_time(client, message, user_states, user_data)
+    
+    elif state == "waiting_watermark_url":
+        await handle_watermark_url(client, message, user_states, user_data)
 
 print("Bot is starting...")
 app.run()
